@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YOLO Object Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f1e8;
+  --bg-strong:#efe3d2;
+  --panel:rgba(255,255,255,0.82);
+  --panel-strong:#fffdf9;
+  --ink:#2f241d;
+  --muted:#6b5e54;
+  --line:rgba(120,99,80,0.18);
+  --accent:#d9774d;
+  --accent-2:#b86a47;
+  --stage:#f3ead9;
+  --shadow:0 18px 44px rgba(101,79,62,0.12);
+  --success:#2a9d74;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#f8f2ea;
+    --bg-strong:#f1e4d5;
+    --panel:rgba(255,255,255,0.84);
+    --panel-strong:#fffaf4;
+    --ink:#2b2018;
+    --muted:#665b52;
+    --line:rgba(92,72,56,0.15);
+    --stage:#f5ebdd;
+    --shadow:0 18px 44px rgba(92,72,56,0.10);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:
+    radial-gradient(circle at top left, rgba(217,119,77,0.12), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(184,106,71,0.12), transparent 30%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-strong) 100%);
+  color:var(--ink);
+  font-family:"Bricolage Grotesque",system-ui,sans-serif;
+  line-height:1.5;
+}
+main{
+  max-width:1220px;
+  margin:0 auto;
+  padding:28px 20px 56px;
+}
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:22px;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+.brand-mark{
+  width:48px;height:48px;border-radius:14px;
+  display:grid;place-items:center;
+  font-weight:800;letter-spacing:-.04em;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#fff;box-shadow:0 12px 25px rgba(184,106,71,0.25);
+}
+.brand h1{
+  margin:0;font-size:clamp(2rem,3vw,2.8rem);line-height:1.05;letter-spacing:-.05em;
+}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.92rem}
+.status-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:999px;
+  background:rgba(42,157,116,0.10); color:var(--ink);
+  border:1px solid rgba(42,157,116,0.18); font-size:.82rem; font-weight:700;
+}
+.status-pill .dot{
+  width:9px;height:9px;border-radius:50%;background:var(--success); box-shadow:0 0 0 4px rgba(42,157,116,0.15);
+}
+.layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.5fr) 360px;
+  gap:22px;
+  align-items:start;
+}
+@media(max-width:860px){.layout{grid-template-columns:1fr}.topbar{flex-direction:column;align-items:flex-start}}
+.viewer-shell,.panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:20px;
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.viewer-shell{padding:16px}
+.stage-header{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  margin-bottom:14px;padding:0 4px 2px;
+}
+.stage-header .title{font-weight:700}
+.stage-header .meta{display:flex;gap:8px;flex-wrap:wrap}
+.chip{
+  border:1px solid var(--line);background:rgba(255,255,255,0.3);
+  border-radius:999px;padding:5px 9px;font-size:.72rem;color:var(--muted);
+}
+.stage{
+  position:relative;background:var(--stage);border-radius:16px;overflow:hidden;
+  aspect-ratio:16/10;display:grid;place-items:center;border:1px solid rgba(255,255,255,0.05);
+}
+canvas{width:100%;height:100%;display:block;object-fit:cover;background:#f3e7d6}
+.empty{
+  position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#7d6b5a;
+  background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.18));padding:24px;
+}
+.empty.hide{display:none}
+.hud{position:absolute;left:12px;bottom:12px;display:flex;gap:8px;font-size:.8rem;flex-wrap:wrap}
+.hud span{
+  background:rgba(47,36,29,0.84);color:#fff;padding:5px 10px;border-radius:999px;
+  border:1px solid rgba(255,255,255,0.08);box-shadow:0 4px 12px rgba(0,0,0,0.12);
+}
+.panel{padding:20px;display:grid;gap:18px}
+.panel-header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.panel-header h2{margin:0;font-size:1.15rem;letter-spacing:-.03em}
+.panel-header .tiny{font-size:.78rem;color:var(--muted)}
+fieldset{border:0;padding:0;margin:0}
+legend{display:block;margin-bottom:8px;font-weight:700;font-size:.93rem}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(148,163,184,0.06)}
+.seg input{position:absolute;opacity:0}
+.seg label{margin:0;padding:12px;text-align:center;cursor:pointer;font-weight:600;color:var(--muted);transition:all .18s ease}
+.seg input:checked+label{background:linear-gradient(135deg, var(--ink), #56453d);color:var(--panel-strong);}
+.seg input:focus-visible+label{outline:3px solid rgba(217,119,77,0.55);outline-offset:-3px}
+label,.control-label{font-weight:700;font-size:.9rem;display:block;margin-bottom:7px}
+input[type=file],select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(148,163,184,0.06);color:var(--ink);font:inherit}
+input[type=file]::file-selector-button{margin-right:10px;border:0;border-radius:10px;padding:8px 10px;background:rgba(217,119,77,0.12);color:var(--ink);font-weight:700}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#confVal{font-weight:700;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+button{
+  width:100%;padding:14px 16px;border:0;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#fff;font:inherit;font-weight:800;cursor:pointer;
+  box-shadow:0 12px 26px rgba(184,106,71,0.25);transition:transform .15s ease, box-shadow .15s ease;
+}
+button:hover{transform:translateY(-1px)}
+button:disabled{opacity:.5;cursor:wait;transform:none;box-shadow:none}
+button.stop{background:linear-gradient(135deg,#4d3c33,#77665c);box-shadow:none}
+.msg{
+  min-height:1.5em;margin:0;font-size:.92rem;color:var(--muted)
+}
+.msg.err{color:var(--accent)}
+.hidden{display:none}
+:focus-visible{outline:3px solid rgba(217,119,77,0.6);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">YO</div>
+      <div>
+        <h1>YOLO Object Finder</h1>
+        <p>Webcam + video detection in your browser</p>
+      </div>
+    </div>
+    <div class="status-pill"><span class="dot"></span> Ready</div>
+  </header>
+
+  <div class="layout">
+    <section class="viewer-shell">
+      <div class="stage-header">
+        <div class="title">Live preview</div>
+        <div class="meta">
+          <span class="chip">ONNX Runtime</span>
+          <span class="chip">Local processing</span>
+        </div>
+      </div>
+      <div class="stage">
+        <canvas id="view" width="960" height="600"></canvas>
+        <div class="empty" id="empty"><div>Choose a source, then select Start detection.</div></div>
+        <div class="hud"><span id="fps">0 FPS</span><span id="count">0 found</span></div>
+      </div>
+    </section>
+
+    <aside class="panel" id="controls">
+      <div class="panel-header">
+        <h2>Detection controls</h2>
+        <span class="tiny">Private</span>
+      </div>
+
+      <fieldset>
+        <legend>Input source</legend>
+        <div class="seg">
+          <input type="radio" name="source" id="s-cam" value="cam" checked><label for="s-cam">Webcam</label>
+          <input type="radio" name="source" id="s-file" value="file"><label for="s-file">Upload video</label>
+        </div>
+      </fieldset>
+
+      <div id="fileWrap" class="hidden">
+        <label for="file">Video file (.mp4, .avi, .mov)</label>
+        <input type="file" id="file" accept=".mp4,.avi,.mov,video/*">
+      </div>
+
+      <div>
+        <label for="cls">Object to detect</label>
+        <select id="cls"></select>
+      </div>
+
+      <div>
+        <div class="row"><label for="conf" class="control-label">Confidence threshold</label><span id="confVal">0.65</span></div>
+        <input type="range" id="conf" min="0.1" max="1" step="0.01" value="0.65">
+      </div>
+
+      <button id="go" type="button">Start detection</button>
+      <p class="msg" id="msg" role="status" aria-live="polite">Loading model…</p>
+    </aside>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
+<script>
+const CLASSES=["person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light","fire hydrant","stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe","backpack","umbrella","handbag","tie","suitcase","frisbee","skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle","wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed","dining table","toilet","tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven","toaster","sink","refrigerator","book","clock","vase","scissors","teddy bear","hair drier","toothbrush"];
+const MODEL_URL="models/yolov8n.onnx", SIZE=640, NMS_IOU=0.45, INFER_INTERVAL_MS=200;
+const $=id=>document.getElementById(id);
+const view=$("view"), vctx=view.getContext("2d");
+const prep=document.createElement("canvas"); prep.width=prep.height=SIZE;
+const pctx=prep.getContext("2d",{willReadFrequently:true});
+const video=document.createElement("video"); video.muted=true; video.playsInline=true;
+let session=null, stream=null, running=false, fileUrl=null, lastInferenceAt=0;
+
+CLASSES.forEach((c,i)=>{const o=document.createElement("option");o.value=i;o.textContent=c;$("cls").appendChild(o)});
+$("conf").oninput=e=>$("confVal").textContent=(+e.target.value).toFixed(2);
+document.querySelectorAll("[name=source]").forEach(r=>r.onchange=()=>$("fileWrap").classList.toggle("hidden",r.value!=="file"||!r.checked));
+function say(t,err){const m=$("msg");m.textContent=t;m.className="msg"+(err?" err":"")}
+
+async function loadModel(){
+  try{
+    ort.env.wasm.wasmPaths="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/";
+    session=await ort.InferenceSession.create(MODEL_URL,{executionProviders:["wasm"]});
+    say("Model ready.");
+  }catch(e){
+    console.error(e);
+    say("Couldn’t load models/yolov8n.onnx. Run export_model.py once and refresh.",true);
+  }
+  $("go").disabled=!session;
+}
+
+function detect(cls,thr){
+  const sw=video.videoWidth, sh=video.videoHeight, s=Math.min(SIZE/sw,SIZE/sh);
+  const nw=Math.round(sw*s), nh=Math.round(sh*s), px=(SIZE-nw)/2, py=(SIZE-nh)/2;
+  pctx.fillStyle="#727272"; pctx.fillRect(0,0,SIZE,SIZE);
+  pctx.drawImage(video,px,py,nw,nh);
+  const d=pctx.getImageData(0,0,SIZE,SIZE).data, n=SIZE*SIZE, f=new Float32Array(3*n);
+  for(let i=0;i<n;i++){f[i]=d[i*4]/255;f[n+i]=d[i*4+1]/255;f[2*n+i]=d[i*4+2]/255}
+  return session.run({[session.inputNames[0]]:new ort.Tensor("float32",f,[1,3,SIZE,SIZE])}).then(r=>{
+    const o=r[session.outputNames[0]].data, N=8400, boxes=[];
+    for(let i=0;i<N;i++){
+      const sc=o[(4+cls)*N+i]; if(sc<=thr) continue;
+      const cx=o[i],cy=o[N+i],w=o[2*N+i],h=o[3*N+i];
+      boxes.push({x1:(cx-w/2-px)/s,y1:(cy-h/2-py)/s,x2:(cx+w/2-px)/s,y2:(cy+h/2-py)/s,sc});
+    }
+    boxes.sort((a,b)=>b.sc-a.sc);
+    const keep=[];
+    for(const b of boxes){if(keep.every(k=>iou(k,b)<NMS_IOU))keep.push(b)}
+    return keep;
+  });
+}
+function iou(a,b){
+  const w=Math.max(0,Math.min(a.x2,b.x2)-Math.max(a.x1,b.x1)), h=Math.max(0,Math.min(a.y2,b.y2)-Math.max(a.y1,b.y1));
+  const i=w*h; return i/((a.x2-a.x1)*(a.y2-a.y1)+(b.x2-b.x1)*(b.y2-b.y1)-i);
+}
+function render(boxes,name){
+  vctx.drawImage(video,0,0,view.width,view.height);
+  vctx.lineWidth=Math.max(2,view.width/400); vctx.font=`600 ${Math.max(14,view.width/50)}px "Bricolage Grotesque",sans-serif`;
+  for(const b of boxes){
+    vctx.strokeStyle="#ff4d4d"; vctx.strokeRect(b.x1,b.y1,b.x2-b.x1,b.y2-b.y1);
+    const t=`${name} ${b.sc.toFixed(2)}`, tw=vctx.measureText(t).width+12, th=parseInt(vctx.font.match(/\d+/)[0])+8;
+    const ty=Math.max(0,b.y1-th);
+    vctx.fillStyle="#ff4d4d"; vctx.fillRect(b.x1,ty,tw,th);
+    vctx.fillStyle="#fff"; vctx.fillText(t,b.x1+6,ty+th-8);
+  }
+}
+async function loop(){
+  let lastPaint=performance.now();
+  while(running){
+    const now=performance.now();
+    if(video.readyState>=2 && !video.paused){
+      if(now-lastInferenceAt >= INFER_INTERVAL_MS){
+        lastInferenceAt=now;
+        const cls=+$("cls").value, thr=+$("conf").value;
+        try{
+          const boxes=await detect(cls,thr);
+          if(!running) break;
+          render(boxes,CLASSES[cls]);
+          const fps=1000/(now-lastPaint || 1);
+          $("fps").textContent=fps.toFixed(1)+" FPS";
+          lastPaint=now;
+          $("count").textContent=boxes.length+" found";
+        }catch(err){
+          console.error(err);
+          say("Detection failed on this frame. Please try a shorter video or a lower-resolution source.",true);
+          stop();
+          break;
+        }
+      } else {
+        vctx.drawImage(video,0,0,view.width,view.height);
+      }
+    } else {
+      await new Promise(r=>setTimeout(r,30));
+    }
+    if(video.ended){say("Video finished.");stop();break}
+    await new Promise(r=>setTimeout(r,16));
+  }
+}
+async function start(){
+  const src=document.querySelector("[name=source]:checked").value;
+  try{
+    if(src==="cam"){
+      stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720}},audio:false});
+      video.srcObject=stream;
+    }else{
+      const f=$("file").files[0];
+      if(!f){say("Choose a video file first.",true);return}
+      if(fileUrl)URL.revokeObjectURL(fileUrl);
+      fileUrl=URL.createObjectURL(f); video.srcObject=null; video.src=fileUrl;
+    }
+    await video.play();
+    await new Promise(r=>video.videoWidth?r():video.addEventListener("loadedmetadata",r,{once:true}));
+  }catch(e){
+    say(src==="cam"?"Couldn’t open the webcam. Allow camera access and try again.":"Couldn’t play that video. Try an .mp4 file.",true);
+    return;
+  }
+  view.width=video.videoWidth; view.height=video.videoHeight;
+  $("empty").classList.add("hide");
+  $("go").textContent="Stop detection"; $("go").classList.add("stop");
+  say("Detecting…"); running=true; loop();
+}
+function stop(){
+  running=false; lastInferenceAt=0; video.pause();
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  $("go").textContent="Start detection"; $("go").classList.remove("stop");
+}
+$("go").onclick=()=>running?(stop(),say("Stopped.")):start();
+$("go").disabled=true; loadModel();
+</script>
+</body>
+</html>
